@@ -1,4 +1,4 @@
-# Wanderlog · AI-Powered Travel Itinerary Builder
+# Wanderlog · Travel Planner
 
 A production-quality MERN application that turns travel booking documents (flight tickets, hotel
 reservations, train tickets, etc.) into a clean, day-by-day itinerary using Google Gemini's
@@ -10,8 +10,8 @@ role at Orbitra Technologies.
 - **JWT authentication** with bcrypt password hashing and rate-limited auth routes.
 - **Drag-and-drop uploads** for PDFs and images, with per-file extraction status badges.
 - **AWS S3** storage for uploaded documents (server-side encryption, scoped per user).
-- **Gemini 1.5 Flash** multimodal extraction parses each document into structured JSON.
-- **Gemini 1.5 Pro** synthesises a chronological itinerary from all selected bookings.
+- **Gemini 2.5 Flash** multimodal extraction parses each document into structured JSON.
+- **Gemini 2.5 Pro** synthesises a chronological itinerary from all selected bookings.
 - **MongoDB + Mongoose** for users, bookings, and itineraries with proper indexes and ownership filtering.
 - **PDF export** of any itinerary using PDFKit, streamed via the API.
 - **TypeScript end-to-end** with Zod validation on every API boundary.
@@ -140,8 +140,8 @@ cp frontend/.env.example frontend/.env
 | `JWT_SECRET` | Long random string (16+ chars) |
 | `JWT_EXPIRES_IN` | e.g. `7d` |
 | `GEMINI_API_KEY` | Google AI Studio API key |
-| `GEMINI_EXTRACTION_MODEL` | default `gemini-1.5-flash` |
-| `GEMINI_ITINERARY_MODEL` | default `gemini-1.5-pro` |
+| `GEMINI_EXTRACTION_MODEL` | default `gemini-2.5-flash` |
+| `GEMINI_ITINERARY_MODEL` | default `gemini-2.5-pro` |
 | `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | S3 credentials |
 | `S3_BUCKET` | Target bucket name |
 | `MAX_FILE_SIZE_MB`, `MAX_FILES_PER_UPLOAD` | Upload limits |
@@ -168,6 +168,33 @@ npm run build
 npm start            # serves the compiled backend
 # Frontend production assets are emitted to frontend/dist
 ```
+
+## Deployment Notes (Render + Vercel)
+
+### Backend on Render (monorepo)
+
+- **Root Directory**: `backend`
+- **Build Command**: `npm install --include=dev && npm run build`
+  - Render can skip `devDependencies` by default; TypeScript compilation requires `typescript` + `@types/*`.
+- **Start Command**: `npm start`
+
+### Frontend on Vercel (React Router SPA refresh)
+
+When deploying a Vite SPA that uses React Router, refreshing deep links like `/login` or `/upload`
+requires an SPA fallback rewrite. This repo includes:
+
+- `frontend/vercel.json`:
+
+```json
+{
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
+```
+
+### CORS
+
+The backend uses `CLIENT_ORIGIN` for CORS. In production, set it to your exact Vercel site origin,
+for example `https://your-app.vercel.app` (no trailing `/`).
 
 ## AWS S3 IAM Policy
 
@@ -287,7 +314,7 @@ erDiagram
 
 - AWS S3 integration with per-user object scoping and SSE-AES256.
 - Drag-and-drop multi-file uploads with previews and per-file status.
-- shadcn-style design system + gradient backgrounds, light/dark variables, mobile-first layout.
+- shadcn-style design system + mobile-first layout.
 - PDF export for offline sharing.
 
 ## Possible Next Steps
