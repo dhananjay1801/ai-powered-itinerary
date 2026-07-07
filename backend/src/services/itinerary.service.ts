@@ -45,17 +45,43 @@ const itinerarySchema = z.object({
 
 export type AiItinerary = z.infer<typeof itinerarySchema>;
 
-const ITINERARY_INSTRUCTIONS = `You are a travel planner. Given the user's booked travel components (flights, hotels, trains,
-activities), build a clean, chronological, day-by-day itinerary. Use the booking data verbatim where
-possible (don't invent flight numbers, hotel names, or PNRs).
+const ITINERARY_INSTRUCTIONS = `You are a travel itinerary assembler. Given the user's travel documents (flights, hotels,
+trains, activities, and detailed day-by-day itineraries), merge them into one chronological, day-by-day
+itinerary. Use the source data verbatim (don't invent flight numbers, hotel names, or PNRs).
+
+CRITICAL - PRESERVE GRANULARITY:
+- Do not paraphrase multiple distinct activities into a single summary activity. Preserve each
+  activity as its own entry with its own timestamp.
+- Every entry in every document's "lineItems" array MUST appear as its own item in the output,
+  with its original time. NEVER collapse them into a generic block like "Jaipur Sightseeing".
+- The output for a given day must contain AT LEAST as many items as the most detailed source
+  document lists for that day. If one document has 10 timed entries for a day, output at least 10.
+- The ONLY merging allowed is deduplication: when two documents describe the SAME real-world
+  event (e.g. the same train appears in both a ticket and a detailed itinerary), output it ONCE,
+  combining facts from both (take the PNR from the ticket, the timing detail from the itinerary).
+  Two different activities are NEVER the "same event" - keep them separate.
+- There is no limit on the number of items per day. Long output is correct output.
 
 Rules:
 - Group items into days based on start date/time. Each day must list items in chronological order.
 - Use "date" in YYYY-MM-DD when known. If not known, omit it and use a friendly "label" like "Day 1".
 - For flights, include origin/destination, time, and flight number in title (e.g. "Flight AI 803 - DEL to BOM").
 - For hotels, create a check-in item on the start date and a check-out item on the end date.
+- CARRY BOOKING DETAILS INTO EACH ITEM: put the PNR/confirmation number in "bookingRef", and put
+  all other useful facts from the source booking in "description" - e.g. for a flight/train/bus:
+  provider, coach/seat/berth, passenger names, departure and arrival stations with times; for a
+  hotel: provider/chain, room type, full address, check-in/check-out times, guest names; for an
+  activity: operator, meeting point, duration. Do not silently drop these facts - if a detail
+  exists in the source data (including totalAmount and currency), surface it in the relevant item.
+- OMIT EMPTY FIELDS - DO NOT WRITE FILLER: if a field has no real value in the source data, leave
+  it out entirely. Never emit placeholder or restating text such as "No specific booking details
+  provided in documents", "No details available", "N/A", or a "description" that merely repeats the
+  title/type like "Activity for Rahul Sharma". Only include "description" when it adds real,
+  concrete information beyond the title; otherwise omit it. Same for "bookingRef", "location", and "time".
 - Add light, helpful suggestions ONLY as "note" items (e.g. "Reach airport 2 hours early") - keep them brief and clearly optional.
 - Do NOT fabricate prices, addresses, or confirmation numbers that aren't in the input.
+- Before returning, verify: count the timed entries per day in the most detailed source document
+  and confirm your output for that day has at least that many items. If not, add the missing ones.
 
 Return STRICT JSON only matching this schema:
 {
@@ -74,8 +100,8 @@ Return STRICT JSON only matching this schema:
           "type": "flight | hotel | train | bus | cab | activity | meal | transfer | note",
           "title": "Short, descriptive",
           "location": "Optional",
-          "description": "Optional details",
-          "bookingRef": "Optional PNR / confirmation"
+          "description": "OPTIONAL - only real booking details (provider, seat/coach, room type, address, amounts). Omit entirely if there is nothing concrete to add; never write filler like 'No details available'.",
+          "bookingRef": "OPTIONAL - PNR / confirmation number when the source booking has one; omit otherwise"
         }
       ]
     }

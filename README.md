@@ -10,8 +10,11 @@ role at Orbitra Technologies.
 - **JWT authentication** with bcrypt password hashing and rate-limited auth routes.
 - **Drag-and-drop uploads** for PDFs and images, with per-file extraction status badges.
 - **AWS S3** storage for uploaded documents (server-side encryption, scoped per user).
-- **Gemini 2.5 Flash** multimodal extraction parses each document into structured JSON.
-- **Gemini 2.5 Pro** synthesises a chronological itinerary from all selected bookings.
+- **Gemini 2.5 Flash** multimodal extraction parses each document into structured JSON — including
+  every timestamped line of detailed day-by-day itinerary documents as individual `lineItems`.
+- **Gemini 2.5 Pro** synthesises a chronological itinerary from all selected bookings, preserving
+  source granularity: distinct activities are never merged or summarised, and only duplicate facts
+  about the *same* event (e.g. a train in both a ticket and an itinerary PDF) are deduplicated.
 - **MongoDB + Mongoose** for users, bookings, and itineraries with proper indexes and ownership filtering.
 - **PDF export** of any itinerary using PDFKit, streamed via the API.
 - **TypeScript end-to-end** with Zod validation on every API boundary.
@@ -94,6 +97,21 @@ sequenceDiagram
     F->>B: GET /itineraries/:id/pdf
     B-->>F: application/pdf stream
 ```
+
+### Granularity guarantees
+
+Two kinds of documents flow through the same pipeline:
+
+- **Single bookings** (a flight ticket, a hotel reservation) extract to one structured record.
+- **Detailed itinerary documents** (e.g. a 3-day plan with 30+ timed entries) extract with
+  `documentKind: "multi-item-itinerary"` and a `lineItems[]` array — one entry per timestamped
+  line (time, title, location), with no length cap.
+
+The synthesis prompt is instructed to carry every `lineItems` entry into the final itinerary as its
+own timed item. It never paraphrases multiple distinct activities into a single summary block; the
+only merging permitted is deduplicating the same real-world event that appears in multiple
+documents. The output for any day contains at least as many items as the most detailed source
+document lists for that day.
 
 ## Getting Started
 

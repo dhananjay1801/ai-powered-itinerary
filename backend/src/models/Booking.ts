@@ -3,6 +3,14 @@ import { Schema, model, type Document, type Model, type Types } from 'mongoose';
 export type BookingType = 'flight' | 'hotel' | 'train' | 'bus' | 'cab' | 'activity' | 'other';
 export type BookingStatus = 'uploaded' | 'parsing' | 'parsed' | 'failed';
 
+export interface ExtractedLineItem {
+  date?: string;
+  time?: string;
+  title: string;
+  location?: string;
+  description?: string;
+}
+
 export interface ExtractedBookingData {
   type: BookingType;
   title?: string;
@@ -18,6 +26,8 @@ export interface ExtractedBookingData {
   notes?: string;
   totalAmount?: string;
   currency?: string;
+  documentKind?: 'single-booking' | 'multi-item-itinerary';
+  lineItems?: ExtractedLineItem[];
   raw?: Record<string, unknown>;
 }
 
@@ -56,6 +66,13 @@ const extractedDataSchema = new Schema<ExtractedBookingData>(
     notes: String,
     totalAmount: String,
     currency: String,
+    documentKind: String,
+    lineItems: [
+      new Schema<ExtractedLineItem>(
+        { date: String, time: String, title: String, location: String, description: String },
+        { _id: false }
+      ),
+    ],
     raw: Schema.Types.Mixed,
   },
   { _id: false }
